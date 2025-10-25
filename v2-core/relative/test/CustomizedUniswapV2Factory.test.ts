@@ -79,13 +79,13 @@ describe("CustomizedUniswapV2Factory", function () {
 
       await expect(
         factory.createPair(tokenAAddr, tokenAAddr)
-      ).to.be.revertedWith("UniswapV2: IDENTICAL_ADDRESSES");
+      ).to.be.revertedWithCustomError(factory, "IdenticalAddresses");
     });
 
     it("Should revert if token is zero address", async function () {
       await expect(
         factory.createPair(ethers.ZeroAddress, await tokenA.getAddress())
-      ).to.be.revertedWith("UniswapV2: ZERO_ADDRESS");
+      ).to.be.revertedWithCustomError(factory, "ZeroAddress");
     });
 
     it("Should revert if pair already exists", async function () {
@@ -96,7 +96,7 @@ describe("CustomizedUniswapV2Factory", function () {
 
       await expect(
         factory.createPair(tokenAAddr, tokenBAddr)
-      ).to.be.revertedWith("UniswapV2: PAIR_EXISTS");
+      ).to.be.revertedWithCustomError(factory, "PairExists");
     });
 
     it("Should revert if pair already exists (reversed order)", async function () {
@@ -107,7 +107,7 @@ describe("CustomizedUniswapV2Factory", function () {
 
       await expect(
         factory.createPair(tokenBAddr, tokenAAddr)
-      ).to.be.revertedWith("UniswapV2: PAIR_EXISTS");
+      ).to.be.revertedWithCustomError(factory, "PairExists");
     });
 
     it("Should create multiple different pairs", async function () {
@@ -133,7 +133,7 @@ describe("CustomizedUniswapV2Factory", function () {
     it("Should revert if non-feeToSetter tries to set feeTo", async function () {
       await expect(
         factory.connect(other).setFeeTo(await other.getAddress())
-      ).to.be.revertedWith("UniswapV2: FORBIDDEN");
+      ).to.be.revertedWithCustomError(factory, "Forbidden");
     });
   });
 
@@ -148,7 +148,7 @@ describe("CustomizedUniswapV2Factory", function () {
     it("Should revert if non-feeToSetter tries to change feeToSetter", async function () {
       await expect(
         factory.connect(other).setFeeToSetter(await other.getAddress())
-      ).to.be.revertedWith("UniswapV2: FORBIDDEN");
+      ).to.be.revertedWithCustomError(factory, "Forbidden");
     });
 
     it("Should allow new feeToSetter to set feeTo after transfer", async function () {

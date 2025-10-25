@@ -134,7 +134,7 @@ describe("CustomizedUniswapV2Pair", function () {
 
       await expect(
         pair.mint(await owner.getAddress())
-      ).to.be.revertedWith("UniswapV2: INSUFFICIENT_LIQUIDITY_MINTED");
+      ).to.be.revertedWithCustomError(pair, "InsufficientLiquidityMinted");
     });
 
     it("Should update reserves after mint", async function () {
@@ -195,7 +195,7 @@ describe("CustomizedUniswapV2Pair", function () {
       // Don't transfer any liquidity tokens
       await expect(
         pair.burn(await owner.getAddress())
-      ).to.be.revertedWith("UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED");
+      ).to.be.revertedWithCustomError(pair, "InsufficientLiquidityBurned");
     });
 
     it("Should emit Sync event after burn", async function () {
@@ -241,13 +241,13 @@ describe("CustomizedUniswapV2Pair", function () {
     it("Should revert if output amount is zero", async function () {
       await expect(
         pair.swap(0, 0, await user1.getAddress(), "0x")
-      ).to.be.revertedWith("UniswapV2: INSUFFICIENT_OUTPUT_AMOUNT");
+      ).to.be.revertedWithCustomError(pair, "InsufficientOutputAmount");
     });
 
     it("Should revert if insufficient liquidity", async function () {
       await expect(
         pair.swap(token0Amount, 0, await user1.getAddress(), "0x")
-      ).to.be.revertedWith("UniswapV2: INSUFFICIENT_LIQUIDITY");
+      ).to.be.revertedWithCustomError(pair, "InsufficientLiquidity");
     });
 
     it("Should revert if invalid to address (token0)", async function () {
@@ -255,7 +255,7 @@ describe("CustomizedUniswapV2Pair", function () {
 
       await expect(
         pair.swap(0, swapAmount, await token0.getAddress(), "0x")
-      ).to.be.revertedWith("UniswapV2: INVALID_TO");
+      ).to.be.revertedWithCustomError(pair, "InvalidRecipient");
     });
 
     it("Should revert if invalid to address (token1)", async function () {
@@ -263,7 +263,7 @@ describe("CustomizedUniswapV2Pair", function () {
 
       await expect(
         pair.swap(swapAmount, 0, await token1.getAddress(), "0x")
-      ).to.be.revertedWith("UniswapV2: INVALID_TO");
+      ).to.be.revertedWithCustomError(pair, "InvalidRecipient");
     });
 
     it("Should enforce constant product formula with 0.3% fee", async function () {

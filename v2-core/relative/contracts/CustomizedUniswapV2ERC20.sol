@@ -2,6 +2,7 @@
 pragma solidity 0.8.28;
 
 import './interfaces/ICustomizedUniswapV2ERC20.sol';
+import './errors/CustomErrors.sol';
 
 /**
  * @title CustomizedUniswapV2ERC20
@@ -362,7 +363,7 @@ contract CustomizedUniswapV2ERC20 is ICustomizedUniswapV2ERC20 {
      */
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
         // Check signature hasn't expired
-        require(deadline >= block.timestamp, 'UniswapV2: EXPIRED');
+        if (deadline < block.timestamp) revert PermitExpired(deadline, block.timestamp);
 
         // Reconstruct the message that was signed
         // EIP-712 format: "\x19\x01" + domainSeparator + structHash
@@ -385,7 +386,7 @@ contract CustomizedUniswapV2ERC20 is ICustomizedUniswapV2ERC20 {
         address recoveredAddress = ecrecover(digest, v, r, s);
 
         // Verify the signature is valid and from the claimed owner
-        require(recoveredAddress != address(0) && recoveredAddress == owner, 'UniswapV2: INVALID_SIGNATURE');
+        if (recoveredAddress == address(0) || recoveredAddress != owner) revert InvalidSignature(recoveredAddress, owner);
 
         // Approval is granted! 🎉
         _approve(owner, spender, value);

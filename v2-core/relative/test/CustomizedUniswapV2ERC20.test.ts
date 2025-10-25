@@ -64,7 +64,7 @@ describe("CustomizedUniswapV2ERC20", function () {
 
       await expect(
         token.connect(user1).transfer(await user2.getAddress(), transferAmount)
-      ).to.be.revertedWith("ds-math-sub-underflow");
+      ).to.be.revertedWithPanic(0x11); // Arithmetic underflow in Solidity 0.8+
     });
 
     it("Should handle zero amount transfers", async function () {
@@ -159,7 +159,7 @@ describe("CustomizedUniswapV2ERC20", function () {
           await user2.getAddress(),
           tooMuchAmount
         )
-      ).to.be.revertedWith("ds-math-sub-underflow");
+      ).to.be.revertedWithPanic(0x11); // Arithmetic underflow in Solidity 0.8+
     });
 
     it("Should not decrease allowance if allowance is max uint256", async function () {
@@ -186,7 +186,7 @@ describe("CustomizedUniswapV2ERC20", function () {
           await user2.getAddress(),
           approvalAmount
         )
-      ).to.be.revertedWith("ds-math-sub-underflow");
+      ).to.be.revertedWithPanic(0x11);
     });
   });
 
@@ -346,7 +346,7 @@ describe("CustomizedUniswapV2ERC20", function () {
           r,
           s
         )
-      ).to.be.revertedWith("UniswapV2: EXPIRED");
+      ).to.be.revertedWithCustomError(token, "PermitExpired");
     });
 
     it("Should revert with invalid signature", async function () {
@@ -393,7 +393,7 @@ describe("CustomizedUniswapV2ERC20", function () {
           r,
           s
         )
-      ).to.be.revertedWith("UniswapV2: INVALID_SIGNATURE");
+      ).to.be.revertedWithCustomError(token, "InvalidSignature");
     });
 
     it("Should revert with wrong nonce", async function () {
@@ -439,7 +439,7 @@ describe("CustomizedUniswapV2ERC20", function () {
           r,
           s
         )
-      ).to.be.revertedWith("UniswapV2: INVALID_SIGNATURE");
+      ).to.be.revertedWithCustomError(token, "InvalidSignature");
     });
   });
 

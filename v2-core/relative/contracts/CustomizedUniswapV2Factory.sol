@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import './interfaces/ICustomizedUniswapV2Factory.sol';
 import './CustomizedUniswapV2Pair.sol';
+import './errors/CustomErrors.sol';
 
 /**
  * @title CustomizedUniswapV2Factory
@@ -165,7 +166,9 @@ contract CustomizedUniswapV2Factory is ICustomizedUniswapV2Factory {
      */
     function createPair(address tokenA, address tokenB) external returns (address pair) {
         // STEP 1: Validate inputs
-        require(tokenA != tokenB, 'UniswapV2: IDENTICAL_ADDRESSES');
+
+        // require(tokenA != tokenB, 'UniswapV2: IDENTICAL_ADDRESSES');
+        if (tokenA == tokenB) revert IdenticalAddresses(tokenA);
         // Can't create USDC/USDC pair - makes no sense!
 
         // STEP 2: Sort tokens by address (lower address first)
@@ -174,11 +177,13 @@ contract CustomizedUniswapV2Factory is ICustomizedUniswapV2Factory {
         // Example: If WETH < USDC by address, token0 = WETH, token1 = USDC
 
         // STEP 3: Ensure not zero address
-        require(token0 != address(0), 'UniswapV2: ZERO_ADDRESS');
+        // require(token0 != address(0), 'UniswapV2: ZERO_ADDRESS');
+        if (token0 == address(0)) revert ZeroAddress();
         // If tokenA or tokenB is 0x0, sorted token0 will be 0x0
 
         // STEP 4: Check pair doesn't already exist
-        require(getPair[token0][token1] == address(0), 'UniswapV2: PAIR_EXISTS');
+        // require(getPair[token0][token1] == address(0), 'UniswapV2: PAIR_EXISTS');
+        if (getPair[token0][token1] != address(0)) revert PairExists(token0, token1, getPair[token0][token1]);
         // Only need to check one direction because we set both below
 
         // STEP 5: Get Pair contract bytecode
@@ -250,7 +255,8 @@ contract CustomizedUniswapV2Factory is ICustomizedUniswapV2Factory {
      * - Governance: setFeeTo(0x0) // Disable fees (give all to LPs)
      */
     function setFeeTo(address _feeTo) external {
-        require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
+        // require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
+        if (msg.sender != feeToSetter) revert Forbidden(msg.sender, feeToSetter);
         feeTo = _feeTo;
     }
 
@@ -277,7 +283,9 @@ contract CustomizedUniswapV2Factory is ICustomizedUniswapV2Factory {
      * (No way to recover if you lose access to feeToSetter address)
      */
     function setFeeToSetter(address _feeToSetter) external {
-        require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
+        // require(msg.sender == feeToSetter, 'UniswapV2: FORBIDDEN');
+        if (msg.sender != feeToSetter) revert Forbidden(msg.sender, feeToSetter);
+
         feeToSetter = _feeToSetter;
     }
 }
