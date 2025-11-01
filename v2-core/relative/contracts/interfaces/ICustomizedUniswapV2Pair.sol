@@ -82,6 +82,28 @@ interface ICustomizedUniswapV2Pair is ICustomizedUniswapV2ERC20 {
     /// @return k value (reserve0 * reserve1)
     function kLast() external view returns (uint256);
 
+    // ============ Dynamic Fee State ============
+
+    /// @notice Current fee tier for this pair (in basis points)
+    /// @return Fee tier (e.g., 1 = 0.01%, 30 = 0.3%, 100 = 1%)
+    function feeTier() external view returns (uint24);
+
+    /// @notice Current volatility score (0-100)
+    /// @return Volatility score
+    function volatility() external view returns (uint8);
+
+    /// @notice Timestamp of last volatility update
+    /// @return Last update timestamp
+    function lastVolatilityUpdate() external view returns (uint32);
+
+    /// @notice Current index in observations circular buffer
+    /// @return Index value (0-23)
+    function observationIndex() external view returns (uint8);
+
+    /// @notice Number of observations recorded so far
+    /// @return Count value (0-24)
+    function observationCount() external view returns (uint8);
+
     // ============ AMM Actions ============
 
     /// @notice Add liquidity to the pool
@@ -109,10 +131,34 @@ interface ICustomizedUniswapV2Pair is ICustomizedUniswapV2ERC20 {
     /// @notice Force reserves to match balances (sync after direct transfer)
     function sync() external;
 
+    // ============ Dynamic Fee Management ============
+
+    /// @notice Update volatility score and adjust fee tier if needed
+    /// @dev Can be called by anyone, updates once per 24 hours
+    function updateVolatility() external;
+
+    /// @notice Get current price of token1 per token0
+    /// @return price Current price (scaled by 1e18)
+    function getCurrentPrice() external view returns (uint256 price);
+
     // ============ Initialization ============
 
     /// @notice Initialize the pair with token addresses (called once by factory)
     /// @param token0Address Address of token0
     /// @param token1Address Address of token1
     function initialize(address token0Address, address token1Address) external;
+
+    // ============ Dynamic Fee Events ============
+
+    /// @notice Emitted when fee tier is updated due to volatility change
+    /// @param oldFeeTier Previous fee tier (basis points)
+    /// @param newFeeTier New fee tier (basis points)
+    /// @param newVolatility Updated volatility score (0-100)
+    event FeeTierUpdated(uint24 indexed oldFeeTier, uint24 indexed newFeeTier, uint8 newVolatility);
+
+    /// @notice Emitted when a new observation is recorded for TWAP oracle
+    /// @param timestamp When the observation was recorded
+    /// @param price0Cumulative Cumulative price of token0 at this time
+    /// @param price1Cumulative Cumulative price of token1 at this time
+    event ObservationRecorded(uint32 indexed timestamp, uint256 price0Cumulative, uint256 price1Cumulative);
 }
