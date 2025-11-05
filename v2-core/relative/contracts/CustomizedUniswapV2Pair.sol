@@ -454,10 +454,10 @@ contract CustomizedUniswapV2Pair is ICustomizedUniswapV2Pair, CustomizedUniswapV
         uint256 balance1Adjusted = balance1 * FeeTiers.FEE_DENOMINATOR - amount1In * feeTier;
 
         // K invariant check with dynamic fees
-        uint256 k0 = uint256(_reserve0) * uint256(_reserve1) * (FeeTiers.FEE_DENOMINATOR ** 2);
+        uint256 k0 = uint256(_reserve0) * uint256(_reserve1) * (uint256(FeeTiers.FEE_DENOMINATOR) ** 2);
         uint256 k1 = balance0Adjusted * balance1Adjusted;
 
-        if (k1 < k0) revert KInvariantViolation(k0, k1);        
+        if (k1 < k0) revert KInvariantViolation(k0, k1);
         }
 
         _update(balance0, balance1, _reserve0, _reserve1);

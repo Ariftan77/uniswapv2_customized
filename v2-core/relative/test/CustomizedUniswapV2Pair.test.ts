@@ -219,7 +219,16 @@ describe("CustomizedUniswapV2Pair", function () {
     });
 
     it("Should swap token0 for token1", async function () {
-      const expectedOutputAmount = ethers.parseEther("1.662497915624478906");
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
+      // Calculate expected output with dynamic fee
+      // Using the formula: amountOut = (amountIn * (FEE_DENOMINATOR - feeTier) * reserveOut) / (reserveIn * FEE_DENOMINATOR + amountIn * (FEE_DENOMINATOR - feeTier))
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const numerator = amountInWithFee * reserves._reserve1;
+      const denominator = reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee;
+      const expectedOutputAmount = numerator / denominator;
 
       await token0.transfer(await pair.getAddress(), swapAmount);
 
@@ -229,7 +238,15 @@ describe("CustomizedUniswapV2Pair", function () {
     });
 
     it("Should swap token1 for token0", async function () {
-      const expectedOutputAmount = ethers.parseEther("0.453305446940074565");
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
+      // Calculate expected output with dynamic fee
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const numerator = amountInWithFee * reserves._reserve0;
+      const denominator = reserves._reserve1 * FEE_DENOMINATOR + amountInWithFee;
+      const expectedOutputAmount = numerator / denominator;
 
       await token1.transfer(await pair.getAddress(), swapAmount);
 
@@ -299,8 +316,19 @@ describe("CustomizedUniswapV2Pair", function () {
       // Wait for next block
       await ethers.provider.send("evm_mine", []);
 
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
+      // Calculate expected output with dynamic fee
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const numerator = amountInWithFee * reserves._reserve1;
+      const denominator = reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee;
+      const expectedOutputAmount = numerator / denominator;
+
       await token0.transfer(await pair.getAddress(), swapAmount);
-      await pair.swap(0, ethers.parseEther("1"), await user1.getAddress(), "0x");
+
+      await pair.swap(0, expectedOutputAmount, await user1.getAddress(), "0x");
 
       const price0After = await pair.price0CumulativeLast();
       const price1After = await pair.price1CumulativeLast();
@@ -379,19 +407,29 @@ describe("CustomizedUniswapV2Pair", function () {
       await token1.transfer(await pair.getAddress(), token1Amount);
       await pair.mint(await owner.getAddress());
 
+      // Get dynamic fee tier
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
       // Perform multiple swaps to generate fees and increase K
       const swapAmount = ethers.parseEther("100");
 
       // Swap token0 for token1
       await token0.transfer(await pair.getAddress(), swapAmount);
       const reserves1 = await pair.getReserves();
-      const amountOut1 = (swapAmount * 997n * reserves1._reserve1) / (reserves1._reserve0 * 1000n + swapAmount * 997n);
+      const amountInWithFee1 = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const numerator1 = amountInWithFee1 * reserves1._reserve1;
+      const denominator1 = reserves1._reserve0 * FEE_DENOMINATOR + amountInWithFee1;
+      const amountOut1 = numerator1 / denominator1;
       await pair.swap(0, amountOut1, await user1.getAddress(), "0x");
 
       // Swap token1 back to token0
       await token1.connect(user1).transfer(await pair.getAddress(), amountOut1);
       const reserves2 = await pair.getReserves();
-      const amountOut2 = (amountOut1 * 997n * reserves2._reserve0) / (reserves2._reserve1 * 1000n + amountOut1 * 997n);
+      const amountInWithFee2 = amountOut1 * (FEE_DENOMINATOR - feeTier);
+      const numerator2 = amountInWithFee2 * reserves2._reserve0;
+      const denominator2 = reserves2._reserve1 * FEE_DENOMINATOR + amountInWithFee2;
+      const amountOut2 = numerator2 / denominator2;
       await pair.swap(amountOut2, 0, await user1.getAddress(), "0x");
 
       // Trigger fee minting by adding more liquidity
@@ -411,11 +449,18 @@ describe("CustomizedUniswapV2Pair", function () {
       await token1.transfer(await pair.getAddress(), token1Amount);
       await pair.mint(await owner.getAddress());
 
+      // Get dynamic fee tier
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
       // Perform swaps
       const swapAmount = ethers.parseEther("100");
       await token0.transfer(await pair.getAddress(), swapAmount);
       const reserves = await pair.getReserves();
-      const amountOut = (swapAmount * 997n * reserves._reserve1) / (reserves._reserve0 * 1000n + swapAmount * 997n);
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const numerator = amountInWithFee * reserves._reserve1;
+      const denominator = reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee;
+      const amountOut = numerator / denominator;
       await pair.swap(0, amountOut, await user1.getAddress(), "0x");
 
       // Add more liquidity
@@ -506,21 +551,21 @@ describe("CustomizedUniswapV2Pair", function () {
       await token1.transfer(await pair.getAddress(), token1Amount);
       await pair.mint(await owner.getAddress());
 
-      // Get fee tier before swap
+      // Get reserves and fee tier before swap
+      const reserves = await pair.getReserves();
       const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
 
       // Perform swap
       const swapAmount = ethers.parseEther("1");
-      await token0.transfer(await pair.getAddress(), swapAmount);
-
-      const reserves = await pair.getReserves();
-      const FEE_DENOMINATOR = 10000n;
 
       // Calculate expected output with dynamic fee
       const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
       const numerator = amountInWithFee * reserves._reserve1;
       const denominator = reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee;
       const expectedOut = numerator / denominator;
+
+      await token0.transfer(await pair.getAddress(), swapAmount);
 
       const balanceBefore = await token1.balanceOf(await user1.getAddress());
       await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
@@ -545,9 +590,17 @@ describe("CustomizedUniswapV2Pair", function () {
       await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]);
       await ethers.provider.send("evm_mine", []);
 
+      // Calculate proper swap output
+      const swapAmount = ethers.parseEther("1");
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
       // Perform swap to trigger observation recording
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("1"));
-      await pair.swap(0, ethers.parseEther("0.9"), await user1.getAddress(), "0x");
+      await token0.transfer(await pair.getAddress(), swapAmount);
+      await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
 
       // Try to update volatility
       await pair.updateVolatility();
@@ -594,9 +647,17 @@ describe("CustomizedUniswapV2Pair", function () {
       await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]);
       await ethers.provider.send("evm_mine", []);
 
+      // Calculate proper swap output for large price movement
+      const swapAmount = ethers.parseEther("50");
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
       // Create price movement (large swap to change price)
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("50"));
-      await pair.swap(0, ethers.parseEther("30"), await user1.getAddress(), "0x");
+      await token0.transfer(await pair.getAddress(), swapAmount);
+      await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
 
       // Fast forward another 24 hours
       await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 + 1]);
@@ -621,9 +682,9 @@ describe("CustomizedUniswapV2Pair", function () {
       await pair.mint(await owner.getAddress());
     });
 
-    it("Should start with zero observations", async function () {
+    it("Should start with one observation after initial mint", async function () {
       const observationCount = await pair.observationCount();
-      expect(observationCount).to.equal(0);
+      expect(observationCount).to.equal(1);
     });
 
     it("Should record observation after 1 hour", async function () {
@@ -633,9 +694,17 @@ describe("CustomizedUniswapV2Pair", function () {
       await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
       await ethers.provider.send("evm_mine", []);
 
+      // Calculate proper swap output
+      const swapAmount = ethers.parseEther("1");
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
       // Trigger observation by performing swap (calls _update)
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("1"));
-      await pair.swap(0, ethers.parseEther("1.5"), await user1.getAddress(), "0x");
+      await token0.transfer(await pair.getAddress(), swapAmount);
+      await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
 
       const countAfter = await pair.observationCount();
 
@@ -647,8 +716,16 @@ describe("CustomizedUniswapV2Pair", function () {
       // First observation
       await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
       await ethers.provider.send("evm_mine", []);
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("1"));
-      await pair.swap(0, ethers.parseEther("1.5"), await user1.getAddress(), "0x");
+
+      const swapAmount = ethers.parseEther("1");
+      let reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+      let amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      let expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
+      await token0.transfer(await pair.getAddress(), swapAmount);
+      await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
 
       const countAfter1 = await pair.observationCount();
 
@@ -656,9 +733,13 @@ describe("CustomizedUniswapV2Pair", function () {
       await ethers.provider.send("evm_increaseTime", [30 * 60]);
       await ethers.provider.send("evm_mine", []);
 
-      // Try to trigger another observation
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("1"));
-      await pair.swap(0, ethers.parseEther("1.5"), await user1.getAddress(), "0x");
+      // Try to trigger another observation with proper calculation
+      reserves = await pair.getReserves();
+      amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
+      await token0.transfer(await pair.getAddress(), swapAmount);
+      await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
 
       const countAfter2 = await pair.observationCount();
 
@@ -671,24 +752,43 @@ describe("CustomizedUniswapV2Pair", function () {
       await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
       await ethers.provider.send("evm_mine", []);
 
+      // Calculate proper swap output
+      const swapAmount = ethers.parseEther("1");
+      const reserves = await pair.getReserves();
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
       // Trigger observation
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("1"));
+      await token0.transfer(await pair.getAddress(), swapAmount);
 
       await expect(
-        pair.swap(0, ethers.parseEther("1.5"), await user1.getAddress(), "0x")
+        pair.swap(0, expectedOut, await user1.getAddress(), "0x")
       ).to.emit(pair, "ObservationRecorded");
     });
 
     it("Should maintain circular buffer of 24 observations", async function () {
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
       // Record 25 observations (more than buffer size)
+      // Note: beforeEach already recorded 1 observation, so we need 24 more to fill the buffer,
+      // plus 1 more to test wraparound
       for (let i = 0; i < 25; i++) {
         // Fast forward 1 hour
         await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
         await ethers.provider.send("evm_mine", []);
 
+        // Calculate proper swap output
+        const swapAmount = ethers.parseEther("0.1");
+        const reserves = await pair.getReserves();
+        const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+        const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
         // Trigger observation
-        await token0.transfer(await pair.getAddress(), ethers.parseEther("0.1"));
-        await pair.swap(0, ethers.parseEther("0.1"), await user1.getAddress(), "0x");
+        await token0.transfer(await pair.getAddress(), swapAmount);
+        await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
       }
 
       const observationCount = await pair.observationCount();
@@ -697,8 +797,8 @@ describe("CustomizedUniswapV2Pair", function () {
       // Count should max out at 24
       expect(observationCount).to.equal(24);
 
-      // Index should have wrapped around (25 % 24 = 1)
-      expect(observationIndex).to.equal(1);
+      // Index should have wrapped around: (1 initial + 25 new) % 24 = 26 % 24 = 2
+      expect(observationIndex).to.equal(2);
     });
 
     it("Should return current price from getCurrentPrice()", async function () {
@@ -714,15 +814,24 @@ describe("CustomizedUniswapV2Pair", function () {
     });
 
     it("Should calculate TWAP correctly with observations", async function () {
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
       // Record multiple observations with price changes
       for (let i = 0; i < 5; i++) {
         // Fast forward 1 hour
         await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
         await ethers.provider.send("evm_mine", []);
 
+        // Calculate proper swap output
+        const swapAmount = ethers.parseEther("0.5");
+        const reserves = await pair.getReserves();
+        const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+        const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
         // Make small swap to change price slightly
-        await token0.transfer(await pair.getAddress(), ethers.parseEther("0.5"));
-        await pair.swap(0, ethers.parseEther("0.9"), await user1.getAddress(), "0x");
+        await token0.transfer(await pair.getAddress(), swapAmount);
+        await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
       }
 
       const observationCount = await pair.observationCount();
@@ -733,22 +842,39 @@ describe("CustomizedUniswapV2Pair", function () {
     });
 
     it("Should handle wraparound in circular buffer correctly", async function () {
+      const feeTier = await pair.feeTier();
+      const FEE_DENOMINATOR = 10000n;
+
       // Fill the buffer completely
-      for (let i = 0; i < 24; i++) {
+      // beforeEach already recorded 1 observation, so we need 23 more to fill the buffer
+      for (let i = 0; i < 23; i++) {
         await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
         await ethers.provider.send("evm_mine", []);
-        await token0.transfer(await pair.getAddress(), ethers.parseEther("0.1"));
-        await pair.swap(0, ethers.parseEther("0.1"), await user1.getAddress(), "0x");
+
+        const swapAmount = ethers.parseEther("0.1");
+        const reserves = await pair.getReserves();
+        const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+        const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
+        await token0.transfer(await pair.getAddress(), swapAmount);
+        await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
       }
 
       expect(await pair.observationCount()).to.equal(24);
+      // After 24 observations (1 initial + 23 new), index should be: (1 + 23) % 24 = 0
       expect(await pair.observationIndex()).to.equal(0); // Should wrap to 0
 
       // Add one more (should overwrite index 0)
       await ethers.provider.send("evm_increaseTime", [60 * 60 + 1]);
       await ethers.provider.send("evm_mine", []);
-      await token0.transfer(await pair.getAddress(), ethers.parseEther("0.1"));
-      await pair.swap(0, ethers.parseEther("0.1"), await user1.getAddress(), "0x");
+
+      const swapAmount = ethers.parseEther("0.1");
+      const reserves = await pair.getReserves();
+      const amountInWithFee = swapAmount * (FEE_DENOMINATOR - feeTier);
+      const expectedOut = (amountInWithFee * reserves._reserve1) / (reserves._reserve0 * FEE_DENOMINATOR + amountInWithFee);
+
+      await token0.transfer(await pair.getAddress(), swapAmount);
+      await pair.swap(0, expectedOut, await user1.getAddress(), "0x");
 
       expect(await pair.observationCount()).to.equal(24); // Still 24
       expect(await pair.observationIndex()).to.equal(1); // Now at index 1
